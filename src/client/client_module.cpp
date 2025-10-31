@@ -1,4 +1,5 @@
 #include "retro_fortress/common/goldsrc_stub.hpp"
+#include "retro_fortress/common/class_profiles.hpp"
 
 #include <algorithm>
 #include <array>
@@ -38,6 +39,7 @@ struct ClientContext {
     std::array<TeamInfo, 2> teams{TeamInfo{"RED", "Reliable Excavation Demolition", 0xB8383B},
                                   TeamInfo{"BLU", "Builders League United", 0x5885A2}};
     std::vector<PlayerScore> scoreboard{};
+    std::vector<rf2::common::ClassProfile> classProfiles{};
     std::array<float, 3> viewAngles{0.0F, 0.0F, 0.0F};
     std::array<float, 3> viewOrigin{0.0F, 0.0F, 64.0F};
     std::array<float, 3> viewVelocity{0.0F, 0.0F, 0.0F};
@@ -47,14 +49,43 @@ struct ClientContext {
     bool hudReady{false};
     bool commandsRegistered{false};
     std::size_t localClassIndex{0};
-    std::array<std::string, 9> classRotation{"Scout",   "Soldier", "Pyro",    "Demoman",
-                                             "Heavy",   "Engineer", "Medic",  "Sniper",
-                                             "Spy"};
+    std::vector<std::string> classRotation{};
 };
 
 ClientContext& context() {
     static ClientContext ctx;
     return ctx;
+}
+
+const rf2::common::ClassProfile* profile_for_index(std::size_t index) {
+    auto& ctx = context();
+    if (ctx.classProfiles.empty() || index >= ctx.classProfiles.size()) {
+        return nullptr;
+    }
+    return &ctx.classProfiles[index];
+}
+
+const rf2::common::ClassProfile* current_profile() {
+    return profile_for_index(context().localClassIndex);
+}
+
+void print_line(std::string_view line);
+
+void print_class_profile_details(const rf2::common::ClassProfile& profile) {
+    std::ostringstream oss;
+    oss << "Class: " << profile.display_name << " [" << profile.identifier << "] | Role: "
+        << profile.role;
+    print_line(oss.str());
+
+    if (profile.loadout.empty()) {
+        print_line("  Loadout: (empty)");
+        return;
+    }
+
+    print_line("  Loadout:");
+    for (const auto& item : profile.loadout) {
+        print_line("    - " + item);
+    }
 }
 
 void print_line(std::string_view line) {
@@ -137,12 +168,21 @@ void print_scoreboard() {
 void ensure_sample_scoreboard() {
     auto& ctx = context();
     ctx.scoreboard.clear();
-    ctx.scoreboard.emplace_back(PlayerScore{"Mercenary", "Scout", 0, 5, 2, 45, true});
-    ctx.scoreboard.emplace_back(PlayerScore{"BlastMaster", "Soldier", 0, 3, 4, 80, false});
-    ctx.scoreboard.emplace_back(PlayerScore{"PyroMania", "Pyro", 0, 2, 3, 60, false});
-    ctx.scoreboard.emplace_back(PlayerScore{"StickyJim", "Demoman", 1, 7, 5, 65, false});
-    ctx.scoreboard.emplace_back(PlayerScore{"SteelWall", "Heavy", 1, 6, 4, 90, false});
-    ctx.scoreboard.emplace_back(PlayerScore{"Gearhead", "Engineer", 1, 4, 6, 55, false});
+    const auto rotationSize = ctx.classRotation.size();
+    const auto classNameForIndex = [&](std::size_t index) -> std::string {
+        if (rotationSize == 0) {
+            return "Unknown";
+        }
+        return ctx.classRotation[index % rotationSize];
+    };
+
+    ctx.scoreboard.emplace_back(
+        PlayerScore{"Mercenary", classNameForIndex(ctx.localClassIndex), 0, 5, 2, 45, true});
+    ctx.scoreboard.emplace_back(PlayerScore{"BlastMaster", classNameForIndex(1), 0, 3, 4, 80, false});
+    ctx.scoreboard.emplace_back(PlayerScore{"PyroMania", classNameForIndex(2), 0, 2, 3, 60, false});
+    ctx.scoreboard.emplace_back(PlayerScore{"StickyJim", classNameForIndex(3), 1, 7, 5, 65, false});
+    ctx.scoreboard.emplace_back(PlayerScore{"SteelWall", classNameForIndex(4), 1, 6, 4, 90, false});
+    ctx.scoreboard.emplace_back(PlayerScore{"Gearhead", classNameForIndex(5), 1, 4, 6, 55, false});
     recalculate_team_totals();
 }
 
@@ -155,11 +195,14 @@ void update_local_class_rotation() {
 
     ctx.localClassIndex = (ctx.localClassIndex + 1) % rotation.size();
     const auto& nextClass = rotation[ctx.localClassIndex];
+    announce("Selected class: " + nextClass);
+    if (const auto* profile = current_profile()) {
+        print_class_profile_details(*profile);
+    }
 
     for (auto& player : ctx.scoreboard) {
         if (player.isLocal) {
             player.className = nextClass;
-            announce("Selected class: " + nextClass);
             return;
         }
     }
@@ -173,6 +216,16 @@ void command_cycle_class() {
     update_local_class_rotation();
 }
 
+void command_show_class_info() {
+    const auto* profile = current_profile();
+    if (!profile) {
+        announce("No class data available");
+        return;
+    }
+
+    print_class_profile_details(*profile);
+}
+
 void register_commands() {
     auto& ctx = context();
     if (ctx.commandsRegistered || !ctx.engine || !ctx.engine->pfnAddCommand) {
@@ -181,6 +234,7 @@ void register_commands() {
 
     ctx.engine->pfnAddCommand("rf2_scoreboard", &command_print_scoreboard);
     ctx.engine->pfnAddCommand("rf2_cycle_class", &command_cycle_class);
+    ctx.engine->pfnAddCommand("rf2_class_info", &command_show_class_info);
     ctx.commandsRegistered = true;
 }
 
@@ -192,6 +246,13 @@ void bind_engine(rf2::goldsrc::cl_enginefunc_t* engineFunctions) {
 
 void on_initialize() {
     auto& ctx = detail::context();
+    const auto& profiles = rf2::common::default_class_profiles();
+    ctx.classProfiles.assign(profiles.begin(), profiles.end());
+    ctx.classRotation.clear();
+    ctx.classRotation.reserve(ctx.classProfiles.size());
+    for (const auto& profile : ctx.classProfiles) {
+        ctx.classRotation.push_back(profile.display_name);
+    }
     ctx.localClassIndex = 0;
     ctx.fov = 90.0F;
     ctx.viewAngles = {0.0F, 0.0F, 0.0F};
@@ -199,6 +260,9 @@ void on_initialize() {
     ctx.viewOrigin = {0.0F, 0.0F, 64.0F};
 
     detail::announce("Retro Fortress 2 client initialized");
+    if (const auto* profile = detail::current_profile()) {
+        detail::print_class_profile_details(*profile);
+    }
     detail::register_commands();
 }
 
