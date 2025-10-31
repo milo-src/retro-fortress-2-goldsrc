@@ -6,10 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(rf2_common STATIC
+    src/common/class_profiles.cpp
     src/common/goldsrc_stub.cpp
 )
 
 target_include_directories(rf2_common PUBLIC include)
+set_target_properties(rf2_common PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_library(rf2_server SHARED
     src/server/game_manager.cpp
