@@ -1,5 +1,6 @@
 #include "retro_fortress/server/game_manager.hpp"
 
+#include <algorithm>
 #include <sstream>
 
 #include "retro_fortress/common/class_profiles.hpp"
@@ -40,6 +41,30 @@ void GameManager::initialize_default_rules() {
     summary << "Retro Fortress 2 default rules initialized (" << m_teams.size() << " teams, "
             << classProfiles.size() << " classes)";
     log_info(summary.str());
+}
+
+Team* GameManager::find_team(const std::string& identifier) noexcept {
+    const auto it = std::find_if(m_teams.begin(), m_teams.end(), [&identifier](const Team& team) {
+        return team.identifier() == identifier;
+    });
+
+    if (it == m_teams.end()) {
+        return nullptr;
+    }
+
+    return &(*it);
+}
+
+const Team* GameManager::find_team(const std::string& identifier) const noexcept {
+    const auto it = std::find_if(m_teams.begin(), m_teams.end(), [&identifier](const Team& team) {
+        return team.identifier() == identifier;
+    });
+
+    if (it == m_teams.end()) {
+        return nullptr;
+    }
+
+    return &(*it);
 }
 
 }  // namespace rf2::server
