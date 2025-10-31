@@ -19,6 +19,9 @@ public:
     void add_class(PlayerClass playerClass);
     const std::vector<PlayerClass>& classes() const noexcept { return m_classes; }
 
+    PlayerClass* find_class(const std::string& identifier) noexcept;
+    const PlayerClass* find_class(const std::string& identifier) const noexcept;
+
 private:
     std::string m_identifier;
     std::string m_displayName;
