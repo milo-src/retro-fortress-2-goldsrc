@@ -5,8 +5,6 @@
 
 namespace rf2::server {
 
-namespace {
-
 void GameInit() {
     log_info("Retro Fortress 2 server initializing game manager");
     GameManager::instance().initialize_default_rules();
@@ -17,8 +15,6 @@ int OnFreeEntPrivateData(rf2::goldsrc::edict_t* entity) {
     log_info("Entity private data freed");
     return 1;
 }
-
-}  // namespace
 
 }  // namespace rf2::server
 
