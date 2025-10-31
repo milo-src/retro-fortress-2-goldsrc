@@ -31,8 +31,34 @@ struct NEW_DLL_FUNCTIONS {
     int (*pfnOnFreeEntPrivateData)(edict_t*){nullptr};
 };
 
+struct client_data_t {
+    float origin[3]{0.0F, 0.0F, 0.0F};
+    float viewangles[3]{0.0F, 0.0F, 0.0F};
+    float velocity[3]{0.0F, 0.0F, 0.0F};
+    float punchangle[3]{0.0F, 0.0F, 0.0F};
+    float fov{90.0F};
+};
+
+struct usercmd_s {
+    std::uint16_t msec{0};
+    float viewangles[3]{0.0F, 0.0F, 0.0F};
+    float forwardmove{0.0F};
+    float sidemove{0.0F};
+    float upmove{0.0F};
+    int buttons{0};
+};
+
+struct ref_params_t {
+    float vieworg[3]{0.0F, 0.0F, 0.0F};
+    float viewangles[3]{0.0F, 0.0F, 0.0F};
+    float fov{90.0F};
+};
+
 struct cl_enginefunc_t {
     void (*pfnClientCmd)(const char*){nullptr};
+    void (*pfnConsolePrint)(const char*){nullptr};
+    void (*pfnAddCommand)(const char*, void (*)()){nullptr};
+    float (*GetClientTime)(){nullptr};
 };
 
 extern enginefuncs_t g_engfuncs;
@@ -57,6 +83,15 @@ int GetNewDLLFunctions(rf2::goldsrc::NEW_DLL_FUNCTIONS* functionTable, int* inte
 
 int Initialize(rf2::goldsrc::cl_enginefunc_t* engineFunctions, int interfaceVersion);
 void HUD_Init();
+void HUD_VidInit();
+void HUD_Reset();
+void HUD_Shutdown();
+void HUD_Redraw(float time, int intermission);
+int HUD_UpdateClientData(rf2::goldsrc::client_data_t* clientData, float flTime);
+void HUD_Frame(double time);
+
+void CL_CreateMove(float frameTime, rf2::goldsrc::usercmd_s* cmd, int active);
+void V_CalcRefdef(rf2::goldsrc::ref_params_t* params);
 
 }
 
